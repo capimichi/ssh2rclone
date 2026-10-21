@@ -15,15 +15,67 @@ Convert SSH configurations (`~/.ssh/config`) to `rclone` remote definitions (`rc
 
 ## Installation
 
-```bash
-# Build locally
-make build
+### 1. Pre-built Binaries (Linux, macOS, Windows)
 
-# Or install to $GOPATH/bin
-go install
+Download the latest release archive for your operating system and architecture from the [GitHub Releases](https://github.com/capimichi/ssh2rclone/releases/latest) page.
+
+#### macOS & Linux (Manual install)
+
+```bash
+# 1. Download the archive for your OS (e.g. macOS Apple Silicon: darwin_arm64)
+# Supported: linux_amd64, linux_arm64, darwin_amd64, darwin_arm64
+VERSION="0.1.0"
+OS="darwin"    # or "linux"
+ARCH="arm64"   # or "amd64"
+
+curl -LO "https://github.com/capimichi/ssh2rclone/releases/download/v${VERSION}/ssh2rclone_${VERSION}_${OS}_${ARCH}.tar.gz"
+
+# 2. Extract the binary
+tar -xzf "ssh2rclone_${VERSION}_${OS}_${ARCH}.tar.gz"
+
+# 3. Move it to a directory in your PATH (e.g. /usr/local/bin or ~/.local/bin)
+sudo mv ssh2rclone /usr/local/bin/
+
+# 4. Verify installation
+ssh2rclone --version
 ```
 
-Pre-built binaries for Linux, macOS, and Windows (amd64 / arm64) are also available on the [GitHub Releases](https://github.com/capimichi/ssh2rclone/releases) page.
+#### Windows (PowerShell)
+
+```powershell
+# 1. Download the zip archive for Windows (amd64 or arm64)
+$VERSION="0.1.0"
+$ARCH="amd64" # or "arm64"
+Invoke-WebRequest -Uri "https://github.com/capimichi/ssh2rclone/releases/download/v$VERSION/ssh2rclone_${VERSION}_windows_${ARCH}.zip" -OutFile "ssh2rclone.zip"
+
+# 2. Extract and run
+Expand-Archive ssh2rclone.zip -DestinationPath .
+.\ssh2rclone.exe --version
+```
+
+---
+
+### 2. Using Go
+
+If you have Go 1.23+ installed:
+
+```bash
+go install github.com/capimichi/ssh2rclone@latest
+```
+*(Ensure `$GOPATH/bin` or `$HOME/go/bin` is in your `$PATH`)*
+
+---
+
+### 3. Build from Source
+
+```bash
+git clone https://github.com/capimichi/ssh2rclone.git
+cd ssh2rclone
+make build
+
+# The compiled binary will be in ./bin/ssh2rclone
+sudo cp bin/ssh2rclone /usr/local/bin/
+```
 
 ## Usage
 
