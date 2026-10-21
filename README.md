@@ -16,10 +16,14 @@ Convert SSH configurations (`~/.ssh/config`) to `rclone` remote definitions (`rc
 ## Installation
 
 ```bash
-go build -o ssh2rclone main.go
-# or install to $GOPATH/bin
+# Build locally
+make build
+
+# Or install to $GOPATH/bin
 go install
 ```
+
+Pre-built binaries for Linux, macOS, and Windows (amd64 / arm64) are also available on the [GitHub Releases](https://github.com/capimichi/ssh2rclone/releases) page.
 
 ## Usage
 
@@ -41,4 +45,50 @@ ssh2rclone --no-backup
 
 # Verbose logging
 ssh2rclone -v
+
+# Print version
+ssh2rclone --version
 ```
+
+## Development
+
+The project includes a `Makefile` to streamline local development:
+
+```bash
+# Run tests with race detector
+make test
+
+# Run linter (requires golangci-lint)
+make lint
+
+# Build binary with git version metadata to bin/ssh2rclone
+make build
+
+# Test GoReleaser build locally without publishing (requires goreleaser)
+make snapshot
+
+# Clean build artifacts
+make clean
+```
+
+## Release & Versioning Guide
+
+Releases are fully automated via **GitHub Actions** and **GoReleaser**.
+
+### Creating a Release
+
+1. Ensure all tests and linters pass:
+   ```bash
+   make test
+   make lint
+   ```
+2. Create and push a signed/annotated Git tag following [Semantic Versioning](https://semver.org/) (`vMAJOR.MINOR.PATCH`):
+   ```bash
+   git tag -a v0.1.0 -m "Release v0.1.0"
+   git push origin v0.1.0
+   ```
+3. GitHub Actions automatically triggers the `Release` workflow:
+   - Builds binaries for Linux, macOS, and Windows on `amd64` and `arm64`.
+   - Injects the version tag, commit hash, and build timestamp into the binary.
+   - Generates release archives (`.tar.gz` and `.zip`) and `checksums.txt`.
+   - Creates the GitHub Release with an auto-generated changelog.

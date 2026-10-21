@@ -10,9 +10,17 @@ import (
 	"ssh2rclone/internal/services"
 )
 
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func main() {
 	var opts model.SyncOptions
+	var showVersion bool
 
+	flag.BoolVar(&showVersion, "version", false, "Print version information and exit")
 	flag.StringVar(&opts.SSHConfigPath, "ssh-config", "", "Path to SSH config file (default: ~/.ssh/config)")
 	flag.StringVar(&opts.RcloneConfigPath, "rclone-config", "", "Path to rclone.conf (default: auto-detected via env/binary/XDG)")
 	flag.BoolVar(&opts.DryRun, "dry-run", false, "Preview changes without modifying rclone.conf")
@@ -27,6 +35,11 @@ func main() {
 	}
 
 	flag.Parse()
+
+	if showVersion {
+		fmt.Printf("ssh2rclone version %s (commit: %s, date: %s)\n", version, commit, date)
+		os.Exit(0)
+	}
 
 	// Resolve SSH config path
 	sshPath, err := config.ResolveSSHConfigPath(opts.SSHConfigPath)

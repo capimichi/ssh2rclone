@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -63,5 +64,17 @@ Host db-proxy
 	}
 	if !strings.Contains(content, "[db-proxy]\ntype = sftp\nssh = ssh db-proxy") {
 		t.Fatalf("db-proxy entry missing or wrong: %s", content)
+	}
+}
+
+func TestVersionFlag(t *testing.T) {
+	cmd := exec.Command("go", "run", "main.go", "-version")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("expected -version to exit with 0, got error: %v, output: %s", err, string(output))
+	}
+	outStr := string(output)
+	if !strings.Contains(outStr, "ssh2rclone version") {
+		t.Errorf("expected output to contain 'ssh2rclone version', got: %s", outStr)
 	}
 }
