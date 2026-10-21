@@ -10,6 +10,22 @@ import (
 	"ssh2rclone/internal/model"
 )
 
+// SSHParser parses SSH configuration files into SSHEntry structures.
+type SSHParser interface {
+	Parse(filePath string, opts model.SyncOptions) ([]model.SSHEntry, error)
+}
+
+type sshParser struct{}
+
+// NewSSHParser creates a new SSHParser.
+func NewSSHParser() SSHParser {
+	return &sshParser{}
+}
+
+func (p *sshParser) Parse(filePath string, opts model.SyncOptions) ([]model.SSHEntry, error) {
+	return ParseSSHConfig(filePath, opts)
+}
+
 // isWildcard checks if an alias contains pattern matching characters.
 func isWildcard(alias string) bool {
 	return strings.ContainsAny(alias, "*?")

@@ -122,3 +122,18 @@ func TestBuildRemotes_InternalDuplicateDetection(t *testing.T) {
 		t.Fatalf("expected duplicate warning in stderr, got: %s", output)
 	}
 }
+
+func TestRemoteNameFormatterInterface(t *testing.T) {
+	formatter := NewRemoteNameFormatter()
+	entry := model.SSHEntry{
+		Alias:    "srv1",
+		HostName: "srv1.internal",
+		User:     "admin",
+	}
+
+	name := formatter.Format(entry, "{user:-root}_{alias}")
+	if name != "admin_srv1" {
+		t.Fatalf("expected admin_srv1, got %s", name)
+	}
+}
+

@@ -7,6 +7,40 @@ import (
 	"path/filepath"
 )
 
+// FileHelper defines file system operations for rclone and ssh configuration files.
+type FileHelper interface {
+	ReadFile(path string) ([]byte, error)
+	AtomicWriteFile(path string, data []byte, perm os.FileMode) error
+	CreateBackup(srcPath string) (string, error)
+	FileExists(path string) bool
+}
+
+// OsFileHelper is the standard OS-backed implementation of FileHelper.
+type OsFileHelper struct{}
+
+// NewOsFileHelper creates a new OsFileHelper.
+func NewOsFileHelper() FileHelper {
+	return &OsFileHelper{}
+}
+
+func (h *OsFileHelper) ReadFile(path string) ([]byte, error) {
+	return os.ReadFile(path)
+}
+
+func (h *OsFileHelper) AtomicWriteFile(path string, data []byte, perm os.FileMode) error {
+	return AtomicWriteFile(path, data, perm)
+}
+
+func (h *OsFileHelper) CreateBackup(srcPath string) (string, error) {
+	return CreateBackup(srcPath)
+}
+
+func (h *OsFileHelper) FileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+
 // AtomicWriteFile safely writes data to target path by writing to a temporary file
 // in the same directory and renaming it over the destination.
 func AtomicWriteFile(destPath string, data []byte, perm os.FileMode) error {

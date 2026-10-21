@@ -9,6 +9,22 @@ import (
 
 var tokenRegex = regexp.MustCompile(`\{([a-zA-Z0-9_]+)(?::-([^}]*))?\}`)
 
+// RemoteNameFormatter formats remote section names based on user templates.
+type RemoteNameFormatter interface {
+	Format(entry model.SSHEntry, tmpl string) string
+}
+
+type remoteNameFormatter struct{}
+
+// NewRemoteNameFormatter creates a new RemoteNameFormatter instance.
+func NewRemoteNameFormatter() RemoteNameFormatter {
+	return &remoteNameFormatter{}
+}
+
+func (f *remoteNameFormatter) Format(entry model.SSHEntry, tmpl string) string {
+	return FormatRemoteName(entry, tmpl)
+}
+
 // FormatRemoteName renders an SSHEntry into a remote name using the given template.
 func FormatRemoteName(entry model.SSHEntry, tmpl string) string {
 	if strings.TrimSpace(tmpl) == "" {

@@ -6,8 +6,8 @@ import (
 	"os"
 
 	"ssh2rclone/internal/config"
+	"ssh2rclone/internal/di"
 	"ssh2rclone/internal/model"
-	"ssh2rclone/internal/services"
 )
 
 var (
@@ -83,45 +83,8 @@ func main() {
 	}
 	opts.NameTemplate = appCfg.Naming.Template
 
-	if opts.Verbose {
-		fmt.Printf("Using SSH config: %s\n", opts.SSHConfigPath)
-		fmt.Printf("Using rclone config: %s\n", opts.RcloneConfigPath)
-		fmt.Printf("Using naming template: %s\n", opts.NameTemplate)
-	}
-
-	// Parse SSH config
-	entries, err := services.ParseSSHConfig(opts.SSHConfigPath, opts)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing SSH config: %v\n", err)
+	if err := di.Execute(opts); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-
-	if opts.Verbose {
-		fmt.Printf("Discovered %d concrete host(s) in SSH config\n", len(entries))
-	}
-
-	// Sync with rclone config
-	res, err := services.SyncRcloneConfig(entries, opts)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error updating rclone config: %v\n", err)
-		os.Exit(1)
-	}
-
-	if opts.DryRun {
-		fmt.Println("=== DRY RUN PREVIEW ===")
-		fmt.Print(res.RenderedBlock)
-		fmt.Printf("Summary: %d remote(s) to add, %d skipped due to external conflicts.\n",
-			len(res.AddedRemotes), len(res.SkippedConflicts))
-		return
-	}
-
-	for _, skipped := range res.SkippedConflicts {
-		fmt.Printf("[WARN] Remote '%s' already exists in manual rclone config: skipped.\n", skipped)
-	}
-
-	if res.BackupPath != "" && opts.Verbose {
-		fmt.Printf("Backup created at: %s\n", res.BackupPath)
-	}
-
-	fmt.Printf("Successfully synchronized %d remote(s) to %s\n", len(res.AddedRemotes), opts.RcloneConfigPath)
 }

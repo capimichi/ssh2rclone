@@ -52,3 +52,48 @@ func TestCreateBackup(t *testing.T) {
 		t.Fatalf("backup content mismatch")
 	}
 }
+
+func TestOsFileHelper(t *testing.T) {
+	fh := helper.NewOsFileHelper()
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "test.txt")
+
+	err := fh.AtomicWriteFile(filePath, []byte("hello world"), 0600)
+	if err != nil {
+		t.Fatalf("AtomicWriteFile failed: %v", err)
+	}
+
+	if !fh.FileExists(filePath) {
+		t.Fatalf("expected file to exist")
+	}
+
+	data, err := fh.ReadFile(filePath)
+	if err != nil || string(data) != "hello world" {
+		t.Fatalf("ReadFile failed: got %q, err %v", string(data), err)
+	}
+
+	bak, err := fh.CreateBackup(filePath)
+	if err != nil || bak == "" {
+		t.Fatalf("CreateBackup failed: %v", err)
+	}
+}
+
+func TestMockFileHelper(t *testing.T) {
+	mf := helper.NewMockFileHelper()
+	mf.Files["/etc/rclone.conf"] = []byte("[test]\ntype = sftp\n")
+
+	if !mf.FileExists("/etc/rclone.conf") {
+		t.Fatalf("expected /etc/rclone.conf to exist in mock")
+	}
+
+	data, err := mf.ReadFile("/etc/rclone.conf")
+	if err != nil || string(data) != "[test]\ntype = sftp\n" {
+		t.Fatalf("unexpected content: %s", string(data))
+	}
+
+	err = mf.AtomicWriteFile("/etc/rclone.conf", []byte("[updated]\n"), 0600)
+	if err != nil || string(mf.Files["/etc/rclone.conf"]) != "[updated]\n" {
+		t.Fatalf("mock AtomicWriteFile failed")
+	}
+}
+

@@ -26,13 +26,41 @@ type SyncResult struct {
 	RenderedBlock    string
 }
 
+// RcloneSyncer synchronizes SSHEntries into rclone.conf managed blocks.
+type RcloneSyncer interface {
+	Sync(entries []model.SSHEntry, opts model.SyncOptions) (SyncResult, error)
+}
+
+type rcloneSyncer struct {
+	fileHelper helper.FileHelper
+	formatter  RemoteNameFormatter
+}
+
+// NewRcloneSyncer creates a new RcloneSyncer with injected FileHelper and RemoteNameFormatter.
+func NewRcloneSyncer(fh helper.FileHelper, nf RemoteNameFormatter) RcloneSyncer {
+	if fh == nil {
+		fh = helper.NewOsFileHelper()
+	}
+	if nf == nil {
+		nf = NewRemoteNameFormatter()
+	}
+	return &rcloneSyncer{
+		fileHelper: fh,
+		formatter:  nf,
+	}
+}
+
 // BuildRemotes converts SSHEntry models to RcloneRemote models using the given naming template.
 func BuildRemotes(entries []model.SSHEntry, tmpl string) []model.RcloneRemote {
+	return buildRemotesWithFormatter(entries, tmpl, NewRemoteNameFormatter())
+}
+
+func buildRemotesWithFormatter(entries []model.SSHEntry, tmpl string, formatter RemoteNameFormatter) []model.RcloneRemote {
 	var remotes []model.RcloneRemote
 	seen := make(map[string]bool)
 
 	for _, e := range entries {
-		remoteName := FormatRemoteName(e, tmpl)
+		remoteName := formatter.Format(e, tmpl)
 		if seen[remoteName] {
 			fmt.Fprintf(os.Stderr, "Warning: duplicate remote name '%s' generated for SSH alias '%s', skipping\n", remoteName, e.Alias)
 			continue
@@ -118,12 +146,17 @@ func ExtractExternalSections(content string) (map[string]bool, string, string) {
 	return externalSections, prefix, suffix
 }
 
-// SyncRcloneConfig performs the synchronization following isolation and conflict policies.
+// SyncRcloneConfig performs the synchronization following isolation and conflict policies (compatibility wrapper).
 func SyncRcloneConfig(entries []model.SSHEntry, opts model.SyncOptions) (SyncResult, error) {
+	syncer := NewRcloneSyncer(helper.NewOsFileHelper(), NewRemoteNameFormatter())
+	return syncer.Sync(entries, opts)
+}
+
+func (s *rcloneSyncer) Sync(entries []model.SSHEntry, opts model.SyncOptions) (SyncResult, error) {
 	var result SyncResult
 
 	var existingContent string
-	if data, err := os.ReadFile(opts.RcloneConfigPath); err == nil {
+	if data, err := s.fileHelper.ReadFile(opts.RcloneConfigPath); err == nil {
 		existingContent = string(data)
 	}
 
@@ -136,7 +169,7 @@ func SyncRcloneConfig(entries []model.SSHEntry, opts model.SyncOptions) (SyncRes
 
 	var validEntries []model.SSHEntry
 	for _, entry := range entries {
-		remoteName := FormatRemoteName(entry, tmpl)
+		remoteName := s.formatter.Format(entry, tmpl)
 		if externalSections[remoteName] {
 			result.SkippedConflicts = append(result.SkippedConflicts, remoteName)
 			if opts.Verbose {
@@ -147,7 +180,7 @@ func SyncRcloneConfig(entries []model.SSHEntry, opts model.SyncOptions) (SyncRes
 		validEntries = append(validEntries, entry)
 	}
 
-	remotes := BuildRemotes(validEntries, tmpl)
+	remotes := buildRemotesWithFormatter(validEntries, tmpl, s.formatter)
 	for _, r := range remotes {
 		result.AddedRemotes = append(result.AddedRemotes, r.Name)
 	}
@@ -159,7 +192,7 @@ func SyncRcloneConfig(entries []model.SSHEntry, opts model.SyncOptions) (SyncRes
 
 	// Create backup if file exists and backup not disabled
 	if !opts.NoBackup && existingContent != "" {
-		bakPath, err := helper.CreateBackup(opts.RcloneConfigPath)
+		bakPath, err := s.fileHelper.CreateBackup(opts.RcloneConfigPath)
 		if err != nil {
 			return result, fmt.Errorf("failed to create backup: %w", err)
 		}
@@ -182,7 +215,7 @@ func SyncRcloneConfig(entries []model.SSHEntry, opts model.SyncOptions) (SyncRes
 		finalContent.WriteString(trimmedSuffix)
 	}
 
-	if err := helper.AtomicWriteFile(opts.RcloneConfigPath, []byte(finalContent.String()), 0600); err != nil {
+	if err := s.fileHelper.AtomicWriteFile(opts.RcloneConfigPath, []byte(finalContent.String()), 0600); err != nil {
 		return result, fmt.Errorf("failed writing rclone config: %w", err)
 	}
 

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"ssh2rclone/internal/helper"
 	"ssh2rclone/internal/model"
 	"ssh2rclone/internal/services"
 )
@@ -130,3 +131,54 @@ func TestRenderBlockSimpleAndComplex(t *testing.T) {
 		t.Fatalf("complex remote rendered incorrectly: %s", rendered)
 	}
 }
+
+func TestRcloneSyncerWithMockFileHelper(t *testing.T) {
+	mockHelper := helper.NewMockFileHelper()
+	rclonePath := "/home/user/.config/rclone/rclone.conf"
+	existingConfig := `[manual_remote]
+type = sftp
+host = 1.2.3.4
+`
+	mockHelper.Files[rclonePath] = []byte(existingConfig)
+
+	syncer := services.NewRcloneSyncer(mockHelper, services.NewRemoteNameFormatter())
+	entries := []model.SSHEntry{
+		{
+			Alias:    "manual_remote", // Should conflict and be skipped
+			HostName: "1.2.3.4",
+		},
+		{
+			Alias:    "new_remote",
+			HostName: "5.6.7.8",
+			User:     "root",
+			Port:     "22",
+		},
+	}
+
+	opts := model.SyncOptions{
+		RcloneConfigPath: rclonePath,
+		DryRun:           false,
+	}
+
+	res, err := syncer.Sync(entries, opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(res.SkippedConflicts) != 1 || res.SkippedConflicts[0] != "manual_remote" {
+		t.Errorf("expected conflict on manual_remote, got %+v", res.SkippedConflicts)
+	}
+	if len(res.AddedRemotes) != 1 || res.AddedRemotes[0] != "new_remote" {
+		t.Errorf("expected new_remote added, got %+v", res.AddedRemotes)
+	}
+
+	// Verify updated config was saved via mockHelper
+	saved := string(mockHelper.Files[rclonePath])
+	if !strings.Contains(saved, "[manual_remote]") || !strings.Contains(saved, "[new_remote]") {
+		t.Fatalf("saved config missing remotes:\n%s", saved)
+	}
+	if !strings.Contains(saved, services.BlockBeginTag) || !strings.Contains(saved, services.BlockEndTag) {
+		t.Fatalf("saved config missing delimiters:\n%s", saved)
+	}
+}
+

@@ -125,3 +125,25 @@ Host simple
 		t.Fatalf("with AllSSH=true, entry should be marked as IsComplex")
 	}
 }
+
+func TestSSHParserInterface(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, "config")
+	content := `Host web
+    HostName 192.168.1.10
+    User webmaster
+`
+	if err := os.WriteFile(cfgPath, []byte(content), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	parser := services.NewSSHParser()
+	entries, err := parser.Parse(cfgPath, model.SyncOptions{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(entries) != 1 || entries[0].Alias != "web" {
+		t.Fatalf("unexpected entries: %+v", entries)
+	}
+}
+
