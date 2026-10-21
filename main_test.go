@@ -78,3 +78,57 @@ func TestVersionFlag(t *testing.T) {
 		t.Errorf("expected output to contain 'ssh2rclone version', got: %s", outStr)
 	}
 }
+
+func TestMain_CustomNameTemplate(t *testing.T) {
+	tmpDir := t.TempDir()
+	sshConfig := filepath.Join(tmpDir, "ssh_config")
+	rcloneConfig := filepath.Join(tmpDir, "rclone.conf")
+
+	sshContent := "Host srv1\n    HostName 192.168.1.10\n    User deploy\n"
+	_ = os.WriteFile(sshConfig, []byte(sshContent), 0o600)
+	_ = os.WriteFile(rcloneConfig, []byte(""), 0o600)
+
+	cmd := exec.Command("go", "run", "main.go", "--ssh-config", sshConfig, "--rclone-config", rcloneConfig, "--name-template", "{user}_{alias}")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("command failed: %v, output: %s", err, string(output))
+	}
+
+	data, err := os.ReadFile(rcloneConfig)
+	if err != nil {
+		t.Fatalf("failed reading rclone config: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "[deploy_srv1]") {
+		t.Fatalf("expected [deploy_srv1] in rclone.conf, got:\n%s", content)
+	}
+}
+
+func TestMain_ConfigYamlLoading(t *testing.T) {
+	tmpDir := t.TempDir()
+	sshConfig := filepath.Join(tmpDir, "ssh_config")
+	rcloneConfig := filepath.Join(tmpDir, "rclone.conf")
+	appConfig := filepath.Join(tmpDir, "config.yaml")
+
+	sshContent := "Host srv1\n    HostName 192.168.1.10\n"
+	appConfigContent := "version: 1\nnaming:\n  template: \"{user:-guest}_{alias}\"\n"
+
+	_ = os.WriteFile(sshConfig, []byte(sshContent), 0o600)
+	_ = os.WriteFile(rcloneConfig, []byte(""), 0o600)
+	_ = os.WriteFile(appConfig, []byte(appConfigContent), 0o600)
+
+	cmd := exec.Command("go", "run", "main.go", "--ssh-config", sshConfig, "--rclone-config", rcloneConfig, "--config", appConfig)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("command failed: %v, output: %s", err, string(output))
+	}
+
+	data, err := os.ReadFile(rcloneConfig)
+	if err != nil {
+		t.Fatalf("failed reading rclone config: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "[guest_srv1]") {
+		t.Fatalf("expected [guest_srv1] in rclone.conf, got:\n%s", content)
+	}
+}

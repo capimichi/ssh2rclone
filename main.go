@@ -23,6 +23,8 @@ func main() {
 	flag.BoolVar(&showVersion, "version", false, "Print version information and exit")
 	flag.StringVar(&opts.SSHConfigPath, "ssh-config", "", "Path to SSH config file (default: ~/.ssh/config)")
 	flag.StringVar(&opts.RcloneConfigPath, "rclone-config", "", "Path to rclone.conf (default: auto-detected via env/binary/XDG)")
+	flag.StringVar(&opts.ConfigPath, "config", "", "Path to ssh2rclone config.yaml (default: XDG config path)")
+	flag.StringVar(&opts.NameTemplate, "name-template", "", "Naming template for generated remotes (e.g. '{user:-root}_{alias}')")
 	flag.BoolVar(&opts.DryRun, "dry-run", false, "Preview changes without modifying rclone.conf")
 	flag.BoolVar(&opts.AllSSH, "all-ssh", false, "Force OpenSSH delegation (ssh = ssh <alias>) for all hosts")
 	flag.BoolVar(&opts.NoBackup, "no-backup", false, "Disable automatic backup of rclone.conf (.bak)")
@@ -62,9 +64,29 @@ func main() {
 	}
 	opts.RcloneConfigPath = rclonePath
 
+	// Resolve and load ssh2rclone application config
+	appConfigPath, err := config.ResolveAppConfigPath(opts.ConfigPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error resolving app config path: %v\n", err)
+		os.Exit(1)
+	}
+
+	appCfg, err := config.LoadAppConfig(appConfigPath, opts.ConfigPath != "")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading configuration: %v\n", err)
+		os.Exit(1)
+	}
+
+	// CLI flag overrides config file
+	if opts.NameTemplate != "" {
+		appCfg.Naming.Template = opts.NameTemplate
+	}
+	opts.NameTemplate = appCfg.Naming.Template
+
 	if opts.Verbose {
 		fmt.Printf("Using SSH config: %s\n", opts.SSHConfigPath)
 		fmt.Printf("Using rclone config: %s\n", opts.RcloneConfigPath)
+		fmt.Printf("Using naming template: %s\n", opts.NameTemplate)
 	}
 
 	// Parse SSH config

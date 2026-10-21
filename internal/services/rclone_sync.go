@@ -26,12 +26,21 @@ type SyncResult struct {
 	RenderedBlock    string
 }
 
-// BuildRemotes converts SSHEntry models to RcloneRemote models.
-func BuildRemotes(entries []model.SSHEntry) []model.RcloneRemote {
+// BuildRemotes converts SSHEntry models to RcloneRemote models using the given naming template.
+func BuildRemotes(entries []model.SSHEntry, tmpl string) []model.RcloneRemote {
 	var remotes []model.RcloneRemote
+	seen := make(map[string]bool)
+
 	for _, e := range entries {
+		remoteName := FormatRemoteName(e, tmpl)
+		if seen[remoteName] {
+			fmt.Fprintf(os.Stderr, "Warning: duplicate remote name '%s' generated for SSH alias '%s', skipping\n", remoteName, e.Alias)
+			continue
+		}
+		seen[remoteName] = true
+
 		remote := model.RcloneRemote{
-			Name: e.Alias,
+			Name: remoteName,
 			Type: "sftp",
 		}
 		if e.IsComplex {
@@ -120,20 +129,28 @@ func SyncRcloneConfig(entries []model.SSHEntry, opts model.SyncOptions) (SyncRes
 
 	externalSections, prefix, suffix := ExtractExternalSections(existingContent)
 
+	tmpl := opts.NameTemplate
+	if tmpl == "" {
+		tmpl = "{alias}"
+	}
+
 	var validEntries []model.SSHEntry
 	for _, entry := range entries {
-		if externalSections[entry.Alias] {
-			result.SkippedConflicts = append(result.SkippedConflicts, entry.Alias)
+		remoteName := FormatRemoteName(entry, tmpl)
+		if externalSections[remoteName] {
+			result.SkippedConflicts = append(result.SkippedConflicts, remoteName)
 			if opts.Verbose {
-				fmt.Printf("[WARN] Remote '%s' already exists in manual rclone config; skipping.\n", entry.Alias)
+				fmt.Printf("[WARN] Remote '%s' already exists in manual rclone config; skipping.\n", remoteName)
 			}
 			continue
 		}
 		validEntries = append(validEntries, entry)
-		result.AddedRemotes = append(result.AddedRemotes, entry.Alias)
 	}
 
-	remotes := BuildRemotes(validEntries)
+	remotes := BuildRemotes(validEntries, tmpl)
+	for _, r := range remotes {
+		result.AddedRemotes = append(result.AddedRemotes, r.Name)
+	}
 	result.RenderedBlock = RenderBlock(remotes)
 
 	if opts.DryRun {

@@ -10,6 +10,7 @@ Convert SSH configurations (`~/.ssh/config`) to `rclone` remote definitions (`rc
 - **Smart Delegation:**
   - Standard hosts: converted to native rclone SFTP remotes (`host`, `user`, `port`, `key_file`).
   - Jump/Proxy hosts: automatically configured to delegate to OpenSSH (`ssh = ssh <alias>`), inheriting `ProxyJump`, `ProxyCommand`, and agent keys.
+- **Custom Remote Naming & XDG Config:** Define custom naming patterns (e.g. `{user:-root}_{alias}`) via `$XDG_CONFIG_HOME/ssh2rclone/config.yaml` or CLI flags.
 - **Automatic Path Discovery:** Detects `rclone.conf` through CLI flag, `$RCLONE_CONFIG`, `rclone config file`, or XDG standard paths.
 - **Safe Operations:** Atomic file writes (temp file + rename) and automatic backup (`rclone.conf.bak`).
 
@@ -92,6 +93,12 @@ ssh2rclone --all-ssh
 # Custom config paths
 ssh2rclone --ssh-config /path/to/ssh_config --rclone-config /path/to/rclone.conf
 
+# Override remote naming template via CLI
+ssh2rclone --name-template "{user:-root}_{alias}"
+
+# Specify custom configuration file
+ssh2rclone --config /path/to/config.yaml
+
 # Disable automatic .bak backup
 ssh2rclone --no-backup
 
@@ -101,6 +108,43 @@ ssh2rclone -v
 # Print version
 ssh2rclone --version
 ```
+
+## Configuration & Remote Naming
+
+`ssh2rclone` supports an extensible configuration file stored in accordance with the XDG Base Directory specification:
+* `$XDG_CONFIG_HOME/ssh2rclone/config.yaml`
+* `~/.config/ssh2rclone/config.yaml` (default fallback)
+
+If the configuration file does not exist, `ssh2rclone` defaults to `{alias}`, maintaining 100% backward compatibility.
+
+### Sample `config.yaml`
+
+```yaml
+version: 1
+
+naming:
+  # Template used to generate rclone remote section names
+  template: "{user:-root}_{alias}"
+```
+
+### Template Variables & Syntax
+
+| Token | Description | Example Value |
+|---|---|---|
+| `{alias}` (or `{name}`) | SSH host alias | `web-prod` |
+| `{user}` (or `{username}`) | SSH `User` directive (empty string if unset) | `deploy` |
+| `{host}` (or `{hostname}`) | Resolved `HostName` (falls back to alias if unset) | `192.168.1.50` |
+| `{port}` | SSH `Port` (defaults to `22` if unset) | `2202` |
+
+#### Inline Defaults (`{var:-default}`)
+You can specify fallback values if a variable is unset in `~/.ssh/config`:
+* `{user:-root}_{alias}`: If `User` is missing, produces `root_web-prod`.
+* `{user}_{alias}`: If `User` is missing, produces `_web-prod`.
+
+#### Sanitization & Collision Protection
+* Any spaces, tabs, or newlines in rendered names are normalized to hyphens (`-`).
+* Brackets (`[` and `]`) are stripped to prevent invalid INI section syntax.
+* If multiple SSH entries produce the exact same remote name, subsequent duplicates are skipped with a warning on `os.Stderr`, preserving the first entry.
 
 ## Development
 

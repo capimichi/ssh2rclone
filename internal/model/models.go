@@ -27,6 +27,8 @@ type RcloneRemote struct {
 type SyncOptions struct {
 	SSHConfigPath    string
 	RcloneConfigPath string
+	ConfigPath       string
+	NameTemplate     string
 	DryRun           bool
 	AllSSH           bool
 	NoBackup         bool
