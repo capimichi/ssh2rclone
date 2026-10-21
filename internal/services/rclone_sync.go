@@ -91,9 +91,7 @@ func ExtractExternalSections(content string) (map[string]bool, string, string) {
 		prefix = content[:beginIdx]
 		suffix = content[endIdx+len(BlockEndTag):]
 		// Clean up leading newline in suffix if present
-		if strings.HasPrefix(suffix, "\n") {
-			suffix = suffix[1:]
-		}
+		suffix = strings.TrimPrefix(suffix, "\n")
 	} else {
 		prefix = content
 		suffix = ""
